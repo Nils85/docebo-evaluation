@@ -1,9 +1,10 @@
 <?php
 namespace DataAccess;
 use PDO;
+use PDOStatement;
 
 /**
- * Access layer to the database.
+ * Data Access Layer.
  * @author Vince <vincent.boursier@gmail.com>
  */
 class DataAccess
@@ -12,9 +13,7 @@ class DataAccess
 	 * SQL scripts used to create tables if they don't exist.
 	 * @var string[] Path from web root
 	 */
-	const SCRIPT_FILES = [
-		__DIR__ . '/tables.sql',
-		__DIR__ . '/data.sql'];
+	const SCRIPT_FILES = ['tables.sql', 'data.sql'];
 
 	/**
 	 * Connection options for PDO.
@@ -30,17 +29,16 @@ class DataAccess
 
 	/**
 	 * Constructor.
-	 * @param string $driver
-	 * @param string $database
-	 * @param string $host
-	 * @param string $user
-	 * @param string $password
-	 * @param int $port
+	 * @param string $driver PDO driver name
+	 * @param string $database Database name
+	 * @param string $host Host name or server IP address
+	 * @param string $user User name
+	 * @param string $password User password
+	 * @param int $port Database port
+	 * @throws Exception If unknown driver
 	 */
 	public function __construct($driver, $database, $host = 'localhost', $user = 'root', $password = '', $port = 0)
 	{
-		$source = 'sqlite:SQLite.db';
-
 		switch ($driver)
 		{
 			case 'sqlite':
@@ -68,19 +66,29 @@ class DataAccess
 					? 'dbname=//' . $host . ':' . $port . '/' . $database
 					: 'dbname=//' . $host . '/' . $database;
 				break;
+
+			default:
+				throw new Exception('Unknown driver ' . $driver);
 		}
 
 		$this->pdo = new PDO($driver . ':' . $source, $user, $password, self::PDO_OPTIONS);
 	}
 
 	/**
-	 * Automatically create tables in the databases.
+	 * Prepare an SQL statement and automatically create tables in the database if necessary.
+	 * @param string $sql
+	 * @return PDOStatement
 	 */
-	private function initializeDatabase()
+	private function tryPrepareQuery($sql)
 	{
+		$preparedStatement = $this->pdo->prepare($sql);
+
+		if ($preparedStatement instanceof PDOStatement)
+		{ return $preparedStatement; }
+
 		foreach (self::SCRIPT_FILES as $path)
 		{
-			foreach (explode(';', file_get_contents($path)) as $query)
+			foreach (explode(';', file_get_contents(__DIR__ . '/' . $path)) as $query)
 			{
 				$query = trim($query);
 
@@ -88,6 +96,8 @@ class DataAccess
 				{ $this->pdo->exec($query); }
 			}
 		}
+
+		return $this->pdo->prepare($sql);
 	}
 
 	/**
@@ -114,7 +124,7 @@ class DataAccess
 	 * @param int $pageSize
 	 * @param string $searchKeyword Filter the result if provided (optional)
 	 * @return array
-	 * @throws Exception
+	 * @throws Exception If node ID doesn't exist
 	 */
 	public function getChildNodes($id, $language, $pageNum, $pageSize, $searchKeyword = '')
 	{
@@ -144,20 +154,12 @@ class DataAccess
 	 */
 	private function selectNodeID($id)
 	{
-		$sql =
+		$query = $this->tryPrepareQuery(
 			'select
 				iLeft as iLeft,
 				iRight as iRight,
 				level as Level
-			from node_tree where idNode = ?';
-
-		$query = $this->pdo->prepare($sql);
-
-		if ($query == false)  // or null
-		{
-			$this->initializeDatabase();
-			$query = $this->pdo->prepare($sql);
-		}
+			from node_tree where idNode = ?');
 
 		$query->bindValue(1, $id, PDO::PARAM_INT);
 		$query->execute();
@@ -193,7 +195,7 @@ class DataAccess
 
 		$sql .= ' order by node_tree.iLeft';
 
-		$query = $this->pdo->prepare($sql);
+		$query = $this->tryPrepareQuery($sql);
 		$query->bindValue(1, $language, PDO::PARAM_STR);
 		$query->bindValue(2, $level, PDO::PARAM_INT);
 		$query->bindValue(3, $level +1, PDO::PARAM_INT);
