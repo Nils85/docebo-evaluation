@@ -6,6 +6,7 @@
  */
 class DataAccess
 {
+	const SCRIPT_FILES = ['tables.sql', 'data.sql'];
 	const PDO_OPTIONS = [
 		PDO::ATTR_PERSISTENT => true,
 		PDO::ATTR_EMULATE_PREPARES => false,
@@ -16,20 +17,20 @@ class DataAccess
 	/**
 	 * Constructor.
 	 * @param string $driver
-	 * @param string $host
-	 * @param int $port
 	 * @param string $database
+	 * @param string $host
 	 * @param string $user
 	 * @param string $password
+	 * @param int $port
 	 */
-	public function __construct($driver, $host, $port, $database, $user, $password)
+	public function __construct($driver, $database, $host = 'localhost', $user = 'root', $password = '', $port = 0)
 	{
 		$source = 'sqlite:SQLite.db';
 
 		switch ($driver)
 		{
 			case 'sqlite':
-				$source = $database . '.db';
+				$source = $database;
 				break;
 
 			case 'mysql':
@@ -43,38 +44,53 @@ class DataAccess
 				break;
 
 			case 'sqlsrv':
-				if ($port > 0)
-				{ $source = 'Server=' . $host . ',' . $port . ';Database=' . $database; }
-				else
-				{ $source = 'Server=' . $host . ';Database=' . $database; }
+				$source = $port > 0
+					? 'Server=' . $host . ',' . $port . ';Database=' . $database
+					: 'Server=' . $host . ';Database=' . $database;
 				break;
 
 			case 'oci':
-				if ($port > 0)
-				{ $source = 'dbname=//' . $host . ':' . $port . '/' . $database; }
-				else
-				{ $source = 'dbname=//' . $host . '/' . $database; }
+				$source = $port > 0
+					? 'dbname=//' . $host . ':' . $port . '/' . $database
+					: 'dbname=//' . $host . '/' . $database;
 				break;
 		}
 
-		$this->pdo = new PDO($driver . ':' . $source, $user, $password, self::PDO_OPTIONS);
+		$this->pdo = new PDO($driver . ':' . $source, $user, $password);
 	}
 
 	/**
-	 * Select nodes that matches.
-	 * @param int $id
+	 * Automatically create tables in the databases.
+	 */
+	private function initializeDatabase()
+	{
+		foreach (self::SCRIPT_FILES as $path)
+		{
+			foreach (explode(';', file_get_contents($path)) as $query)
+			{
+				$query = trim($query);
+
+				if ($query != '')
+				{ $this->pdo->exec($query); }
+			}
+		}
+	}
+
+	/**
+	 * Select node children.
+	 * @param int $id Parent node ID
 	 * @param string $language
 	 * @param int $pageNum
 	 * @param int $pageSize
-	 * @param string $searchKeyword
+	 * @param string $searchKeyword Filter the result if provided (optional)
 	 * @return array
 	 */
-	public function getNodes($id, $language, $pageNum, $pageSize, $searchKeyword)
+	public function getChildNodes($id, $language, $pageNum, $pageSize, $searchKeyword = '')
 	{
 		if ($pageSize == 0)
 		{ return []; }
 
-		$nodeInfo = $this->selectParentNode($id, $language);
+		$nodeInfo = $this->selectNode($id, $language);
 
 		if (empty($nodeInfo['nodeName']))
 		{ return []; }
@@ -83,11 +99,14 @@ class DataAccess
 			'node_id' => $id,
 			'name' => $nodeInfo['nodeName'],
 			'children_count' => 0,
-			'nodes' => $this->selectChildNodes(
+			'nodes' => $this->selectNodes(
 				$nodeInfo['iLeft'],
 				$nodeInfo['iRight'],
 				$nodeInfo['level'] +1,
-				$nodeInfo['language'])
+				$language,
+				$pageNum,
+				$pageSize,
+				$searchKeyword)
 		];
 
 		$nodes['children_count'] = count($nodes['nodes']);
@@ -95,27 +114,28 @@ class DataAccess
 	}
 
 	/**
-	 * Get the root node.
+	 * Get one node.
 	 * @param int $id
 	 * @param string $language
 	 * @return array
 	 */
-	private function selectParentNode($id, $language)
+	private function selectNode($id, $language)
 	{
-		$sql = 'select
-			node_tree.level as level,
-			node_tree.iLeft as iLeft,
-			node_tree.iRight as iRight,
-			node_tree_names.nodeName as nodeName
+		$sql =
+			'select
+				node_tree.level as level,
+				node_tree.iLeft as iLeft,
+				node_tree.iRight as iRight,
+				node_tree_names.nodeName as nodeName
 			from node_tree
-			inner join node_tree_names on node_tree.idNode=node_tree_names.idNode
-			where node_tree_names.language=? and node_tree.idNode=?';
+			inner join node_tree_names on node_tree.idNode = node_tree_names.idNode
+			where node_tree.idNode = ? and node_tree_names.language = ?';
 
 		$query = $this->pdo->prepare($sql);
 
 		if ($query == false)  // or null
 		{
-			//TODO: create tables if they don't exist
+			$this->initializeDatabase();
 			$query = $this->pdo->prepare($sql);
 		}
 
@@ -129,47 +149,61 @@ class DataAccess
 
 	/**
 	 * Get child nodes.
+	 * Possible optimization:
+	 * All child levels could be fetch with only one SQL query without calling recursive function
+	 * but this needs more complex code... So I don't know if it's worth it.
+	 * @todo Store the prepared query in a static variable
 	 * @param int $nodeLeft
 	 * @param int $nodeRight
 	 * @param int $level
 	 * @param string $language
+	 * @param int $pageNum
+	 * @param int $pageSize
+	 *
 	 * @return array
 	 */
-	private function selectChildNodes($nodeLeft, $nodeRight, $level, $language)
+	private function selectNodes($nodeLeft, $nodeRight, $level, $language, $pageNum, $pageSize, $keyword = '')
 	{
 		$nodes = [];
-
-		$query = $this->pdo->prepare('select
-			node_tree.idNode as nodeID,
-			node_tree.level as level,
-			node_tree.iLeft as iLeft,
-			node_tree.iRight as iRight,
-			node_tree_names.nodeName as nodeName
+		$sql =
+			'select
+				node_tree.idNode as nodeID,
+				node_tree.level as level,
+				node_tree.iLeft as iLeft,
+				node_tree.iRight as iRight,
+				node_tree_names.nodeName as nodeName
 			from node_tree
-			inner join node_tree_names on node_tree.idNode=node_tree_names.idNode
-			where node_tree.iLeft > ? and node_tree.iRight < ? and node_tree_names.language = ?
-			order by node_tree.level');
+			inner join node_tree_names on node_tree.idNode = node_tree_names.idNode
+			where node_tree.iLeft > ? and node_tree.iRight < ?
+				and node_tree.level = ? and node_tree_names.language = ?';
 
+		if ($keyword != '')
+		{ $sql .= " and node_tree_names.nodeName like '%$keyword%'"; }
+
+		$query = $this->pdo->prepare($sql);
 		$query->bindValue(1, $nodeLeft, PDO::PARAM_INT);
 		$query->bindValue(2, $nodeRight, PDO::PARAM_INT);
-		$query->bindValue(3, $language, PDO::PARAM_STR);
+		$query->bindValue(3, $level, PDO::PARAM_INT);
+		$query->bindValue(4, $language, PDO::PARAM_STR);
 		$query->execute();
 
 		while ($row = $query->fetch(PDO::FETCH_ASSOC))
 		{
-			if ($row['level'] > $currentLevel)
+			$newNode = [
+				'node_id' => $row['nodeID'],
+				'name' => $row['nodeName'],
+				'children_count' => 0,
+				'nodes' => []
+			];
+
+			// If there is a gap between iLeft and iRight it's probably because children exist
+			if ($row['iRight'] > $row['iLeft'] +1)
 			{
-				//TODO: I probably need a recursive function... or an object to handle all node levels...
+				$newNode['nodes'] = $this->selectNodes($row['iLeft'], $row['iRight'], $row['level']+1, $language);
+				$newNode['children_count'] = count($newNode['nodes']);
 			}
-			else
-			{
-				$nodes = [
-					'node_id' => $row['nodeID'],
-					'name' => $row['nodeName'],
-					'children_count' => 0,
-					'nodes' => []
-				];
-			}
+
+			$nodes[] = $newNode;
 		}
 
 		return $nodes;

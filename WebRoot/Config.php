@@ -9,7 +9,7 @@ class Config
 
 	/**
 	 * PDO driver name.
-	 * @var string mysql or sqlite (other driver like pgsql, sqlsrv or oci can works but wasn't tested)
+	 * @var string mysql or sqlite (other drivers not tested: pgsql sqlsrv oci)
 	 */
 	DATABASE_DRIVER = 'sqlite',
 
@@ -22,15 +22,15 @@ class Config
 
 	/**
 	 * Port number to connect to the database system.
-	 * @var int
+	 * @var int Number between 1 and 65535 or 0 to use the default port
 	 */
-	DATABASE_PORT = 3306,
+	DATABASE_PORT = 0,
 
 	/**
 	 * Name of the database where the tables are stored.
-	 * @var string
+	 * @var string Database name (or file path with SQLite)
 	 */
-	DATABASE_NAME = 'Docebo',
+	DATABASE_NAME = 'Docebo.db',
 
 	/**
 	 * User name and password to connect to the database system.
@@ -41,7 +41,7 @@ class Config
 
 	/**
 	 * Default page size if not provided.
-	 * @var int
+	 * @var int Number between 1 and 1000
 	 */
 	DEFAULT_PAGESIZE = 100;
 }

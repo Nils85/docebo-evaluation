@@ -14,6 +14,7 @@ spl_autoload_register(function($className) {
 	require $className . '.php';
 });
 
+// Sanitize input params
 $nodeID = filter_input(INPUT_GET, 'node_id', FILTER_SANITIZE_NUMBER_INT);
 $language = filter_input(INPUT_GET, 'language', FILTER_SANITIZE_STRING);
 $searchKeyword = filter_input(INPUT_GET, 'search_keyword', FILTER_SANITIZE_STRING);
@@ -38,12 +39,12 @@ if ($error !== null)
 	exit;
 }
 
-$db = new DataAccess(
+$dao = new DataAccess(
 	Config::DATABASE_DRIVER,
-	Config::DATABASE_HOST,
-	Config::DATABASE_PORT,
 	Config::DATABASE_NAME,
+	Config::DATABASE_HOST,
 	Config::DATABASE_USER,
-	Config::DATABASE_PASSWORD);
+	Config::DATABASE_PASSWORD,
+	Config::DATABASE_PORT);
 
-echo '{"nodes": ', json_encode($db->getNodes($id)), '}';
+echo '{"nodes": ', json_encode($dao->getNodes($nodeID, $language, $pageNum, $pageSize, $searchKeyword)), '}';
