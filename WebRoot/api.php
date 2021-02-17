@@ -11,40 +11,38 @@
  */
 
 spl_autoload_register(function($className) {
-	require $className . '.php';
+	require str_replace('\\', '/', $className) . '.php';
 });
-
-// Sanitize input params
-$nodeID = filter_input(INPUT_GET, 'node_id', FILTER_SANITIZE_NUMBER_INT);
-$language = filter_input(INPUT_GET, 'language', FILTER_SANITIZE_STRING);
-$searchKeyword = filter_input(INPUT_GET, 'search_keyword', FILTER_SANITIZE_STRING);
-$pageNum = filter_input(INPUT_GET, 'page_num', FILTER_SANITIZE_NUMBER_INT) ?? 0;
-$pageSize = filter_input(INPUT_GET, 'page_size', FILTER_SANITIZE_NUMBER_INT) ?? Config::DEFAULT_PAGESIZE;
-
-$error = null;
-
-// Check required params
-if ($nodeID == null || $language == null)  // or false
-{ $error = 'Missing mandatory params'; }
-elseif ($pageNum === false || $pageNum < 0)
-{ $error = 'Invalid page number requested'; }
-elseif ($pageSize === false || $pageSize < 0 || $pageSize > 1000)
-{ $error = 'Invalid page size requested'; }
 
 header('Content-Type: application/json');
 
-if ($error !== null)
+try
 {
-	echo '{"nodes": [], "error": "', $error, '"}';
-	exit;
+	// Sanitize input params
+	$nodeID = filter_input(INPUT_GET, 'node_id', FILTER_SANITIZE_NUMBER_INT);
+	$language = filter_input(INPUT_GET, 'language', FILTER_SANITIZE_STRING);
+	$searchKeyword = filter_input(INPUT_GET, 'search_keyword', FILTER_SANITIZE_STRING);
+	$pageNum = filter_input(INPUT_GET, 'page_num', FILTER_SANITIZE_NUMBER_INT) ?? 0;
+	$pageSize = filter_input(INPUT_GET, 'page_size', FILTER_SANITIZE_NUMBER_INT) ?? WebApp\Config::DEFAULT_PAGESIZE;
+
+	// Check params
+	if ($nodeID === null || $nodeID === false || $language == null)
+	{ throw new Exception('Missing mandatory params'); }
+	elseif ($pageNum === false || $pageNum < 0)
+	{ throw new Exception('Invalid page number requested'); }
+	elseif ($pageSize === false || $pageSize < 0 || $pageSize > 1000)
+	{ throw new Exception('Invalid page size requested'); }
+
+	$dao = WebApp\WebApp::getDataAccessObject();
+
+	if ($nodeID == 0)
+	{ $nodes = $dao->getRootNodes($language, $pageNum, $pageSize, $searchKeyword); }
+	else
+	{ $nodes = $dao->getChildNodes($nodeID, $language, $pageNum, $pageSize, $searchKeyword); }
+
+	echo '{"nodes":', json_encode($nodes), '}';
 }
-
-$dao = new DataAccess(
-	Config::DATABASE_DRIVER,
-	Config::DATABASE_NAME,
-	Config::DATABASE_HOST,
-	Config::DATABASE_USER,
-	Config::DATABASE_PASSWORD,
-	Config::DATABASE_PORT);
-
-echo '{"nodes": ', json_encode($dao->getNodes($nodeID, $language, $pageNum, $pageSize, $searchKeyword)), '}';
+catch (Exception $e)
+{
+	echo '{"nodes":[],"error":"', $e->getMessage(), '"}';
+}

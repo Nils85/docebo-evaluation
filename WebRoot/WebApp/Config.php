@@ -1,7 +1,8 @@
 <?php
+namespace WebApp;
 
 /**
- * Web App configuration.
+ * WebApp configuration.
  */
 class Config
 {
@@ -9,13 +10,13 @@ class Config
 
 	/**
 	 * PDO driver name.
-	 * @var string mysql or sqlite (other drivers not tested: pgsql sqlsrv oci)
+	 * @var string mysql, sqlite, pgsql, sqlsrv, or oci (Oracle)
 	 */
 	DATABASE_DRIVER = 'sqlite',
 
 	/**
 	 * Server hosting the database system.
-	 * To use socket path with MySQL add "unix_socket=..."
+	 * "unix_socket=..." to use socket path with MySQL
 	 * @var string IP address or machine name
 	 */
 	DATABASE_HOST = 'localhost',
