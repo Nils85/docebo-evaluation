@@ -3,6 +3,7 @@ desktop.ini
 .DS_Store
 
 # PHPUnit
+phpunit*.phar
 phpunit.xml
 
 # IDE folders

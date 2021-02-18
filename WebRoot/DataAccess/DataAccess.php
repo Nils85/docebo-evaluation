@@ -2,6 +2,7 @@
 namespace DataAccess;
 use PDO;
 use PDOStatement;
+use Exception;
 
 /**
  * Data Access Layer.

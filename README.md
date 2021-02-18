@@ -16,10 +16,20 @@ You only need PHP itself to test on your computer.
 You need PHP, Apache and MySQL to deploy on a server.
 
 - Create a database on MySQL for the WebApp.  
-*If you don't create the tables with `DataAccess/tables.sql`  
-and insert data with `DataAccess/data.sql`  
+*If you didn't create tables with `WebRoot/DataAccess/tables.sql`  
+and insert data with `WebRoot/DataAccess/data.sql`  
 the API should create everything for you at your first request.*
 
 - Edit the config file in `WebRoot/WebApp/Config.php` with your database info
 - Configure Apache to serve the WebRoot folder
 - Go to the URL http://localhost with your browser to open index.html (frontend)
+
+## Unit testing
+
+Download PHPUnit: https://phar.phpunit.de/phpunit-7.phar  
+Move it at the root of the project directory and open a terminal.  
+Then type:
+
+`php phpunit-7.5.20.phar tests/DataAccessTest.php` To test a specific class  
+or  
+`php phpunit-7.5.20.phar tests` To test the whole project
