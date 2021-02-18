@@ -12,32 +12,34 @@ class DataAccessTest extends PHPUnit\Framework\TestCase
 
 	public static function setUpBeforeClass()
 	{
-		self::$dao = new DataAccess\DataAccess('sqlite', ':memory:');
-		//self::$dao = new DataAccess\DataAccess('sqlite', 'test.db');
+		self::$dao = new DataAccess\DataAccess('sqlite', ':memory:');  // or 'test.db'
+		//self::$dao = new DataAccess\DataAccess('mysql', 'Docebo', '127.0.0.1', 'root', '');
 	}
 
-	public function testRootNodes()
+	public function testRootNode()
 	{
 		$nodes = self::$dao->getRootNodes('english', 0, 100);
-		$this->assertArraySubset($nodes, [['node_id' => 5, 'name' => 'Docebo', 'children_count' => 8]]);
+		$this->assertEquals($nodes, [['node_id' => 5, 'name' => 'Docebo', 'children_count' => 8]]);
 	}
 
-	public function testRootNodesPageSize0()
+	public function testPageSize0()
 	{
 		$nodes = self::$dao->getRootNodes('english', 0, 0);
 		$this->assertSame($nodes, []);
-	}
 
-	public function testChildNodesPageSize0()
-	{
-		$nodes = self::$dao->getChildNodes(0, 'english', 0, 0);
+		$nodes = self::$dao->getChildNodes(1, 'english', 0, 0);
 		$this->assertSame($nodes, []);
 	}
 
-	public function testChildNodesKeyword()
+	public function testKeywordSearch()
 	{
-		$nodes = self::$dao->getChildNodes(5, 'english', 0, 100, 'Market');
-		$this->assertArraySubset($nodes, [['node_id' => 1, 'name' => 'Marketing', 'children_count' => 0]]);
+		$nodes = self::$dao->getChildNodes(5, 'english', 0, 100, 'account');
+		$this->assertEquals($nodes,
+			[
+				['node_id' => 4, 'name' => 'Customer Account', 'children_count' => 0],
+				['node_id' => 6, 'name' => 'Accounting', 'children_count' => 0]
+			]
+		);
 	}
 
 	public function testException()

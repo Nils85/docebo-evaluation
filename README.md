@@ -24,7 +24,7 @@ the API should create everything for you at your first request.*
 - Configure Apache to serve the WebRoot folder
 - Go to the URL http://localhost with your browser to open index.html (frontend)
 
-## Unit testing
+## Run unit testing
 
 Download PHPUnit: https://phar.phpunit.de/phpunit-7.phar  
 Move it at the root of the project directory and open a terminal.  
