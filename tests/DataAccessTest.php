@@ -25,10 +25,10 @@ class DataAccessTest extends PHPUnit\Framework\TestCase
 	public function testPageSize0()
 	{
 		$nodes = self::$dao->getRootNodes('english', 0, 0);
-		$this->assertSame($nodes, []);
+		$this->assertEmpty($nodes);
 
 		$nodes = self::$dao->getChildNodes(1, 'english', 0, 0);
-		$this->assertSame($nodes, []);
+		$this->assertEmpty($nodes);
 	}
 
 	public function testKeywordSearch()
