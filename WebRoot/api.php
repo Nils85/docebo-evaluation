@@ -22,16 +22,31 @@ try
 	$nodeID = filter_input(INPUT_GET, 'node_id', FILTER_SANITIZE_NUMBER_INT);
 	$language = filter_input(INPUT_GET, 'language', FILTER_SANITIZE_STRING);
 	$searchKeyword = filter_input(INPUT_GET, 'search_keyword', FILTER_SANITIZE_STRING);
-	$pageNum = filter_input(INPUT_GET, 'page_num', FILTER_SANITIZE_NUMBER_INT) ?? 0;
-	$pageSize = filter_input(INPUT_GET, 'page_size', FILTER_SANITIZE_NUMBER_INT) ?? WebApp\Config::DEFAULT_PAGESIZE;
+	$pageNum = 0;  // Default
+	$pageSize = WebApp\Config::PAGESIZE_DEFAULT;
 
-	// Check params
-	if ($nodeID === null || $nodeID === false || $language == null)
+	// Check required params
+	if ($nodeID === null || $nodeID === false || $nodeID === '' || $language == null)
 	{ throw new Exception('Missing mandatory params'); }
-	elseif ($pageNum === false || $pageNum < 0)
-	{ throw new Exception('Invalid page number requested'); }
-	elseif ($pageSize === false || $pageSize < 0 || $pageSize > 1000)
-	{ throw new Exception('Invalid page size requested'); }
+
+	if (filter_has_var(INPUT_GET, 'page_num'))
+	{
+		$pageNum = filter_input(INPUT_GET, 'page_num', FILTER_SANITIZE_NUMBER_INT);
+
+		if ($pageNum === null || $pageNum === false || $pageNum === '')
+		{ throw new Exception('Invalid page number requested'); }
+	}
+
+	if (filter_has_var(INPUT_GET, 'page_size'))
+	{
+		$pageSize = filter_input(INPUT_GET, 'page_size', FILTER_SANITIZE_NUMBER_INT);
+
+		if ($pageSize === null || $pageSize === false || $pageSize === ''
+			|| $pageSize < WebApp\Config::PAGESIZE_MIN || $pageSize > WebApp\Config::PAGESIZE_MAX)
+		{
+			throw new Exception('Invalid page size requested');
+		}
+	}
 
 	$dao = WebApp\WebApp::getDataAccessObject();
 

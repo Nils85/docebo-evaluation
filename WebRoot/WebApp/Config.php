@@ -42,7 +42,19 @@ class Config
 
 	/**
 	 * Default page size if not provided.
-	 * @var int Number between 1 and 1000
+	 * @var int Number between min and max
 	 */
-	DEFAULT_PAGESIZE = 100;
+	PAGESIZE_DEFAULT = 100,
+
+	/**
+	 * Minimum page size allowed.
+	 * @var int Number
+	 */
+	PAGESIZE_MIN = 0,
+
+	/**
+	 * Maximum page size allowed.
+	 * @var int Number
+	 */
+	PAGESIZE_MAX = 1000;
 }
