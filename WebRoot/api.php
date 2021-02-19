@@ -18,42 +18,54 @@ header('Content-Type: application/json');
 
 try
 {
-	// Sanitize input params
-	$nodeID = filter_input(INPUT_GET, 'node_id', FILTER_SANITIZE_NUMBER_INT);
-	$language = filter_input(INPUT_GET, 'language', FILTER_SANITIZE_STRING);
-	$searchKeyword = filter_input(INPUT_GET, 'search_keyword', FILTER_SANITIZE_STRING);
-	$pageNum = 0;  // Default
-	$pageSize = WebApp\Config::PAGESIZE_DEFAULT;
+	$inputs = filter_input_array(INPUT_GET,
+		[
+			'node_id' => FILTER_VALIDATE_INT,
+			'language' => FILTER_SANITIZE_STRING,
+			'search_keyword' => FILTER_SANITIZE_STRING,
+			'page_num' => FILTER_VALIDATE_INT,
+			'page_size' => FILTER_VALIDATE_INT
+		]);
 
 	// Check required params
-	if ($nodeID === null || $nodeID === false || $nodeID === '' || $language == null)
+	if ($inputs['node_id'] === null || $inputs['node_id'] === false || $inputs['language'] == null)
 	{ throw new Exception('Missing mandatory params'); }
 
-	if (filter_has_var(INPUT_GET, 'page_num'))
-	{
-		$pageNum = filter_input(INPUT_GET, 'page_num', FILTER_SANITIZE_NUMBER_INT);
+	if ($inputs['page_num'] === null)
+	{ $inputs['page_num'] = 0; }  // Default
+	elseif ($inputs['page_num'] === false || $inputs['page_num'] < 0)
+	{ throw new Exception('Invalid page number requested'); }
 
-		if ($pageNum === null || $pageNum === false || $pageNum === '')
-		{ throw new Exception('Invalid page number requested'); }
+	if ($inputs['page_size'] === null)
+	{
+		$inputs['page_size'] = WebApp\Config::PAGESIZE_DEFAULT;
 	}
-
-	if (filter_has_var(INPUT_GET, 'page_size'))
+	elseif ($inputs['page_size'] === false
+		|| $inputs['page_size'] < WebApp\Config::PAGESIZE_MIN
+		|| $inputs['page_size'] > WebApp\Config::PAGESIZE_MAX)
 	{
-		$pageSize = filter_input(INPUT_GET, 'page_size', FILTER_SANITIZE_NUMBER_INT);
-
-		if ($pageSize === null || $pageSize === false || $pageSize === ''
-			|| $pageSize < WebApp\Config::PAGESIZE_MIN || $pageSize > WebApp\Config::PAGESIZE_MAX)
-		{
-			throw new Exception('Invalid page size requested');
-		}
+		throw new Exception('Invalid page size requested');
 	}
 
 	$dao = WebApp\WebApp::getDataAccessObject();
 
-	if ($nodeID == 0)
-	{ $nodes = $dao->getRootNodes($language, $pageNum, $pageSize, $searchKeyword); }
+	if ($inputs['node_id'] == 0)
+	{
+		$nodes = $dao->getRootNodes(
+			$inputs['language'],
+			$inputs['page_num'],
+			$inputs['page_size'],
+			$inputs['search_keyword']);
+	}
 	else
-	{ $nodes = $dao->getChildNodes($nodeID, $language, $pageNum, $pageSize, $searchKeyword); }
+	{
+		$nodes = $dao->getChildNodes(
+			$inputs['node_id'],
+			$inputs['language'],
+			$inputs['page_num'],
+			$inputs['page_size'],
+			$inputs['search_keyword']);
+	}
 
 	echo '{"nodes":', json_encode($nodes), '}';
 }
